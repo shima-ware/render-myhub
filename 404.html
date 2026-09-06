@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Loading...</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}
+.loader{width:40px;height:40px;border:3px solid #ddd;border-top-color:#333;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.paste-view{max-width:780px;width:100%;padding:20px}
+.paste-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.paste-title{font-size:22px;font-weight:700;color:#1a202c}
+.paste-meta{font-size:13px;color:#64748b}
+.paste-code{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);overflow:auto}
+.paste-content{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#1a202c}
+.paste-actions{display:flex;gap:10px;margin-top:16px}
+.paste-btn{padding:10px 20px;font-size:14px;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;background:#fff;color:#3b82f6;cursor:pointer;transition:all 0.2s}
+.paste-btn:hover{background:#f1f5f9}
+.paste-btn.primary{background:#3b82f6;color:white;border-color:#3b82f6}
+.paste-btn.primary:hover{background:#2563eb}
+.back-link{display:inline-block;margin-top:20px;font-size:14px;color:#3b82f6;text-decoration:none}
+.back-link:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="loader" id="loader"></div>
+<div class="paste-view" id="pasteView" style="display:none">
+  <div class="paste-header">
+    <div>
+      <div class="paste-title" id="pvTitle">Snippet</div>
+      <div class="paste-meta" id="pvMeta"></div>
+    </div>
+    <div class="paste-actions">
+      <button class="paste-btn primary" onclick="copyPaste()">Sao chep</button>
+      <button class="paste-btn" onclick="downloadPaste()">Tai xuong</button>
+    </div>
+  </div>
+  <div class="paste-code">
+    <div class="paste-content" id="pvContent"></div>
+  </div>
+  <a class="back-link" href="/">Tao link/snippet moi &rarr;</a>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js"></script>
+<script>
+(function(){
+  var DB_NAME='snip_sqlite',STORE_NAME='db';
+  var path=window.location.pathname.replace(/^\//,'').replace(/\.html$/,'').replace(/\/$/,'');
+  if(!path||path==='404'||path==='index'){window.location.href='/#404';return;}
+
+  function initIDB(){return new Promise(function(R,RJ){var r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=function(e){var i=e.target.result;if(!i.objectStoreNames.contains(STORE_NAME))i.createObjectStore(STORE_NAME);};r.onsuccess=function(e){R(e.target.result);};r.onerror=function(e){RJ(e);};});}
+  function loadDBFromIDB(idb){return new Promise(function(R){var tx=idb.transaction([STORE_NAME],'readonly');var s=tx.objectStore(STORE_NAME);var r=s.get('sqlite_db');r.onsuccess=function(e){var d=e.target.result;R(d?new Uint8Array(d):null);};r.onerror=function(){R(null);};});}
+
+  var pasteData=null;
+
+  async function tryRedirect(){
+    try{
+      var SQL=await initSqlJs({locateFile:function(f){return'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/'+f;}});
+      var idb=await initIDB();
+      var existing=await loadDBFromIDB(idb);
+      if(!existing){window.location.href='/#'+path;return;}
+      var db=new SQL.Database(existing);
+      var stmt=db.prepare("SELECT * FROM short_links WHERE code=? LIMIT 1");
+      stmt.bind([path]);
+      if(stmt.step()){
+        var row=stmt.getAsObject();
+        var type=row.type||'url';
+        // Increment clicks
+        db.run("UPDATE short_links SET clicks=clicks+1 WHERE code=?",[path]);
+        var data=db.export();
+        var tx2=idb.transaction([STORE_NAME],'readwrite');
+        tx2.objectStore(STORE_NAME).put(data.buffer,'sqlite_db');
+        stmt.free();
+        db.close();
+        if(type==='paste'){
+          // Show paste content
+          pasteData=row;
+          showPasteView(row);
+          return;
+        }else{
+          // Redirect URL
+          if(row.url){
+            window.location.replace(row.url);
+            return;
+          }
+        }
+      }
+      stmt.free();
+      db.close();
+      window.location.href='/#'+path;
+    }catch(e){
+      window.location.href='/#'+path;
+    }
+  }
+
+  function showPasteView(row){
+    document.getElementById('loader').style.display='none';
+    document.getElementById('pasteView').style.display='block';
+    document.title=row.label||('Paste /'+path);
+    document.getElementById('pvTitle').textContent=row.label||('Paste /'+path);
+    var meta=[];
+    if(row.created_date)meta.push(row.created_date);
+    meta.push((row.clicks||0)+1+' luot xem');
+    document.getElementById('pvMeta').textContent=meta.join(' \u00b7 ');
+    var content=row.content||'';
+    var el=document.getElementById('pvContent');
+    el.textContent=content;
+  }
+
+  window.copyPaste=function(){
+    if(pasteData&&pasteData.content){
+      if(navigator.clipboard){navigator.clipboard.writeText(pasteData.content).catch(function(){});}
+      else{var ta=document.createElement('textarea');ta.value=pasteData.content;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+      alert('Da sao chep!');
+    }
+  };
+
+  window.downloadPaste=function(){
+    if(!pasteData||!pasteData.content)return;
+    var blob=new Blob([pasteData.content],{type:'text/plain'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=(pasteData.label||pasteData.code||'snippet')+'.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  };
+
+  tryRedirect();
+})();
+</script>
+</body>
+</html>

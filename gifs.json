@@ -1,0 +1,22 @@
+{
+  "gifs": [
+    {
+      "url": "https://base44.app/api/apps/6a94977def75997d3f73bc5e/files/mp/public/6a94977def75997d3f73bc5e/38de0ad40_khoi-hanh.gif",
+      "title": "Khởi Hành",
+      "date": "2026-09-01",
+      "caption": "Ngày X Team thắp lửa lên đường — under the banner of Ngài Shima Phương Minh."
+    },
+    {
+      "url": "https://base44.app/api/apps/6a94977def75997d3f73bc5e/files/mp/public/6a94977def75997d3f73bc5e/6b41e5673_bang-ngan-ha.gif",
+      "title": "Băng Ngân Hà",
+      "date": "2026-09-02",
+      "caption": "Vượt qua biển sao — mỗi năm ánh sáng là một bước tới Tân Thế Giới."
+    },
+    {
+      "url": "https://base44.app/api/apps/6a94977def75997d3f73bc5e/files/mp/public/6a94977def75997d3f73bc5e/0c84b3866_cong-tan-the-gioi.gif",
+      "title": "Cổng Tân Thế Giới",
+      "date": "2026-09-03",
+      "caption": "Cánh cổng thế giới mới mở ra — X Team tiến vào kỷ nguyên vĩ đại."
+    }
+  ]
+}
